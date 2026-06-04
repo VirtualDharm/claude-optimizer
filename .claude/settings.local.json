@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rtk ls *)",
+      "Bash(rtk find *)",
+      "Bash(rtk read *)",
+      "Bash(echo \"===EXIT $?===\")",
+      "Bash(command -v ccusage npx bunx)",
+      "Bash(ccusage blocks *)",
+      "Bash(echo \"=== EXIT $? ===\")",
+      "Bash(ccusage weekly *)",
+      "Bash(rtk grep *)",
+      "Bash(bash ~/.claude/statusline-command.sh)",
+      "Bash(rtk du *)",
+      "Bash(mv node_modules ccusage/)",
+      "Bash(rm -rf docs screenshots)",
+      "Bash(rtk tree *)",
+      "Bash(git init *)",
+      "Bash(git config *)",
+      "Bash(git add *)"
+    ]
+  }
+}

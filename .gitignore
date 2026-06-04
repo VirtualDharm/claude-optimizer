@@ -1,0 +1,6 @@
+.DS_Store
+*.swp
+*.tmp
+.claude/plans/
+ccusage/node_modules/
+ccusage/dist/
