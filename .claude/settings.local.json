@@ -31,7 +31,10 @@
       "Bash(rm -f src/widgets/*.orig)",
       "Bash(statusline/cc-dir.sh)",
       "Bash(statusline/cc-ctx-index.sh)",
-      "Bash(/Users/mac/Projects2/claude-optimizer/ccusage/statusline/cc-ctx-index.sh)"
+      "Bash(/Users/mac/Projects2/claude-optimizer/ccusage/statusline/cc-ctx-index.sh)",
+      "Bash(git push *)",
+      "Bash(git ls-remote *)",
+      "Bash(git merge *)"
     ]
   }
 }
