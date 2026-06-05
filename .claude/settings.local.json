@@ -17,7 +17,21 @@
       "Bash(rtk tree *)",
       "Bash(git init *)",
       "Bash(git config *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(ssh-add -l)",
+      "Bash(ssh -G github.com)",
+      "Bash(git remote *)",
+      "Bash(rtk git *)",
+      "mcp__plugin_context-mode_context-mode__ctx_index",
+      "Bash(~/.bun/bin/bun dist/ccstatusline.js)",
+      "Bash(sed -i.orig \"s/'Session: '/'CS '/g\" src/widgets/SessionUsage.ts)",
+      "Bash(sed -i.orig \"s/'Weekly: '/'W '/g\" src/widgets/WeeklyUsage.ts)",
+      "Bash(sed -i.orig \"s/'Reset: '/'R '/g\" src/widgets/BlockResetTimer.ts)",
+      "Bash(rm -f src/widgets/*.orig)",
+      "Bash(statusline/cc-dir.sh)",
+      "Bash(statusline/cc-ctx-index.sh)",
+      "Bash(/Users/mac/Projects2/claude-optimizer/ccusage/statusline/cc-ctx-index.sh)"
     ]
   }
 }

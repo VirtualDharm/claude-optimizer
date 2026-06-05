@@ -123,10 +123,10 @@ export class BlockResetTimerWidget implements Widget {
                     getUsageLocale(item),
                     isUsage12HourClock(item)
                 );
-                return formatRawOrLabeledValue(item, 'Reset: ', resetAt ?? (compact ? '03-12 08:30Z' : '2026-03-12 08:30 UTC'));
+                return formatRawOrLabeledValue(item, 'R ', resetAt ?? (compact ? '03-12 08:30Z' : '2026-03-12 08:30 UTC'));
             }
 
-            return formatRawOrLabeledValue(item, 'Reset: ', compact ? '4h30m' : '4hr 30m');
+            return formatRawOrLabeledValue(item, 'R ', compact ? '4h30m' : '4hr 30m');
         }
 
         const usageData = context.usageData ?? {};
@@ -162,12 +162,12 @@ export class BlockResetTimerWidget implements Widget {
             const locale = getUsageLocale(item);
             const resetAt = formatUsageResetAt(usageData.sessionResetAt, compact, timezone, locale, isUsage12HourClock(item));
             if (resetAt) {
-                return formatRawOrLabeledValue(item, 'Reset: ', resetAt);
+                return formatRawOrLabeledValue(item, 'R ', resetAt);
             }
         }
 
         const remainingTime = formatUsageDuration(window.remainingMs, compact);
-        return formatRawOrLabeledValue(item, 'Reset: ', remainingTime);
+        return formatRawOrLabeledValue(item, 'R ', remainingTime);
     }
 
     getCustomKeybinds(item?: WidgetItem): CustomKeybind[] {

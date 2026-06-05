@@ -70,16 +70,16 @@ export class WeeklyUsageWidget implements Widget {
                 const width = getUsageProgressBarWidth(displayMode);
                 const progressBar = makeTimerProgressBar(renderedPercent, width, showCursor ? { cursorPercent: 50 } : undefined);
                 const progressDisplay = `[${progressBar}] ${renderedPercent.toFixed(1)}%`;
-                return formatRawOrLabeledValue(item, 'Weekly: ', progressDisplay);
+                return formatRawOrLabeledValue(item, 'W ', progressDisplay);
             }
 
             if (isUsageSliderMode(displayMode)) {
                 const slider = makeSliderBar(renderedPercent, undefined, showCursor ? { cursorPercent: 50 } : undefined);
                 const sliderDisplay = displayMode === 'slider' ? `${slider} ${renderedPercent.toFixed(1)}%` : slider;
-                return formatRawOrLabeledValue(item, 'Weekly: ', sliderDisplay);
+                return formatRawOrLabeledValue(item, 'W ', sliderDisplay);
             }
 
-            return formatRawOrLabeledValue(item, 'Weekly: ', `${previewPercent.toFixed(1)}%`);
+            return formatRawOrLabeledValue(item, 'W ', `${previewPercent.toFixed(1)}%`);
         }
 
         const data = context.usageData ?? {};
@@ -105,16 +105,16 @@ export class WeeklyUsageWidget implements Widget {
 
             const progressBar = makeTimerProgressBar(renderedPercent, width, getCursorOptions());
             const progressDisplay = `[${progressBar}] ${renderedPercent.toFixed(1)}%`;
-            return formatRawOrLabeledValue(item, 'Weekly: ', progressDisplay);
+            return formatRawOrLabeledValue(item, 'W ', progressDisplay);
         }
 
         if (isUsageSliderMode(displayMode)) {
             const slider = makeSliderBar(renderedPercent, undefined, getCursorOptions());
             const sliderDisplay = displayMode === 'slider' ? `${slider} ${renderedPercent.toFixed(1)}%` : slider;
-            return formatRawOrLabeledValue(item, 'Weekly: ', sliderDisplay);
+            return formatRawOrLabeledValue(item, 'W ', sliderDisplay);
         }
 
-        return formatRawOrLabeledValue(item, 'Weekly: ', `${percent.toFixed(1)}%`);
+        return formatRawOrLabeledValue(item, 'W ', `${percent.toFixed(1)}%`);
     }
 
     getCustomKeybinds(item?: WidgetItem): CustomKeybind[] {

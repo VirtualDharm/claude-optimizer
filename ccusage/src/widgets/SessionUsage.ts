@@ -70,16 +70,16 @@ export class SessionUsageWidget implements Widget {
                 const width = getUsageProgressBarWidth(displayMode);
                 const progressBar = makeTimerProgressBar(renderedPercent, width, showCursor ? { cursorPercent: 50 } : undefined);
                 const progressDisplay = `[${progressBar}] ${renderedPercent.toFixed(1)}%`;
-                return formatRawOrLabeledValue(item, 'Session: ', progressDisplay);
+                return formatRawOrLabeledValue(item, 'CS ', progressDisplay);
             }
 
             if (isUsageSliderMode(displayMode)) {
                 const slider = makeSliderBar(renderedPercent, undefined, showCursor ? { cursorPercent: 50 } : undefined);
                 const sliderDisplay = displayMode === 'slider' ? `${slider} ${renderedPercent.toFixed(1)}%` : slider;
-                return formatRawOrLabeledValue(item, 'Session: ', sliderDisplay);
+                return formatRawOrLabeledValue(item, 'CS ', sliderDisplay);
             }
 
-            return formatRawOrLabeledValue(item, 'Session: ', `${previewPercent.toFixed(1)}%`);
+            return formatRawOrLabeledValue(item, 'CS ', `${previewPercent.toFixed(1)}%`);
         }
 
         const data = context.usageData ?? {};
@@ -105,16 +105,16 @@ export class SessionUsageWidget implements Widget {
 
             const progressBar = makeTimerProgressBar(renderedPercent, width, getCursorOptions());
             const progressDisplay = `[${progressBar}] ${renderedPercent.toFixed(1)}%`;
-            return formatRawOrLabeledValue(item, 'Session: ', progressDisplay);
+            return formatRawOrLabeledValue(item, 'CS ', progressDisplay);
         }
 
         if (isUsageSliderMode(displayMode)) {
             const slider = makeSliderBar(renderedPercent, undefined, getCursorOptions());
             const sliderDisplay = displayMode === 'slider' ? `${slider} ${renderedPercent.toFixed(1)}%` : slider;
-            return formatRawOrLabeledValue(item, 'Session: ', sliderDisplay);
+            return formatRawOrLabeledValue(item, 'CS ', sliderDisplay);
         }
 
-        return formatRawOrLabeledValue(item, 'Session: ', `${percent.toFixed(1)}%`);
+        return formatRawOrLabeledValue(item, 'CS ', `${percent.toFixed(1)}%`);
     }
 
     getCustomKeybinds(item?: WidgetItem): CustomKeybind[] {

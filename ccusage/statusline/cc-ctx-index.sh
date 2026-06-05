@@ -9,6 +9,12 @@ set -uo pipefail
 input="$(cat)"
 CWD="$(printf '%s' "$input" | jq -r '.workspace.current_dir // .cwd // ""' 2>/dev/null)"
 [ -n "$CWD" ] || exit 0
+# Resolve to git repo root so a subfolder (e.g. ccusage/) reports the whole project's
+# index, not just files under the subfolder.
+if command -v git >/dev/null 2>&1; then
+  ROOT="$(git -C "$CWD" rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$ROOT" ] && CWD="$ROOT"
+fi
 CDIR="$HOME/.claude/context-mode/content"
 [ -d "$CDIR" ] || exit 0
 
