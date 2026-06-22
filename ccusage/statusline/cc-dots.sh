@@ -18,5 +18,15 @@ if command -v rtk >/dev/null 2>&1 && \
 R=$'\033[0m'
 [ "$CAVE" = "1" ] && c=$'\033[32m●'"$R" || c=$'\033[31m●'"$R"
 [ "$RTK"  = "1" ] && r=$'\033[33m●'"$R" || r=$'\033[35m●'"$R"
-printf '%s %s' "$c" "$r"
+
+# ── account letter: first char of logged-in Claude email (uppercase) ─────────
+# pick the right .claude.json for the active account (CLAUDE_CONFIG_DIR-aware)
+CJ="$HOME/.claude.json"
+[ -n "${CLAUDE_CONFIG_DIR:-}" ] && [ -f "$CLAUDE_CONFIG_DIR/.claude.json" ] && CJ="$CLAUDE_CONFIG_DIR/.claude.json"
+EMAIL="$(jq -r '.oauthAccount.emailAddress // empty' "$CJ" 2>/dev/null)"
+ACC="$(printf '%s' "${EMAIL:0:1}" | tr '[:lower:]' '[:upper:]')"
+[ -z "$ACC" ] && ACC='?'
+a=$'\033[1;36m'"$ACC""$R"   # bright cyan, bold
+
+printf '%s %s %s' "$a" "$c" "$r"
 exit 0
