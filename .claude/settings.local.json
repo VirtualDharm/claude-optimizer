@@ -112,7 +112,30 @@
       "Bash(security dump-keychain *)",
       "Bash(security delete-generic-password *)",
       "Bash(set -e)",
-      "Bash(mv ~/.claude-work ~/.claude-personal)"
+      "Bash(mv ~/.claude-work ~/.claude-personal)",
+      "Bash(kill -9 30899 30881)",
+      "Bash(pkill -9 -f \"node -e global\\\\[\")",
+      "Bash(kill -9 30904 30907 30908 30909 30910)",
+      "Bash(npm ls *)",
+      "Bash(file dist/main*)",
+      "Bash(node -e \"const s=require\\('./package.json'\\).scripts||{};for\\(const k of Object.keys\\(s\\)\\)console.log\\(k.padEnd\\(20\\),'=',s[k]\\)\")",
+      "Bash(rm -rf node_modules package-lock.json dist)",
+      "Bash(npm install *)",
+      "Bash(npm audit *)",
+      "Bash(rtk npm *)",
+      "Bash(pkill -9 -f \"nest start --watch\")",
+      "Bash(pkill -9 -f \"fork-ts-checker\")",
+      "Bash(npm rebuild *)",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/bcrypt/package.json'\\).version\\)\")",
+      "Bash(which node-gyp *)",
+      "Bash(pkill -9 -f \"purple_investor_backend.*nest start\")",
+      "Bash(pkill -9 -f \"purple_investor_backend/dist/main\")",
+      "Bash(pkill -9 -f \"purple_investor_backend.*start:dev\")",
+      "Bash(awk 'NR<=117609 && /!\\\\*\\\\*\\\\*/ {h=$0; ln=NR} END{print ln\": \"h}' dist/main.js)",
+      "Bash(pkill -9 -f \"purple_investor_backend\")",
+      "Bash(awk 'NR<=117650 && /!\\\\*\\\\*\\\\*/ {h=$0; ln=NR} END{print ln\": \"h}' dist/main.js)",
+      "Bash(grep -viE \"\\\\$\\\\$?eval\\\\\\(|//|/\\\\*\")",
+      "Bash(grep -vE '\\\\$eval|\\\\$\\\\$eval')"
     ]
   }
 }
