@@ -1,14 +1,3 @@
 {
-  "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash /Users/mac/Projects2/claude-optimizer/hooks/fable-guard.sh"
-          }
-        ]
-      }
-    ]
-  }
+  "hooks": {}
 }
