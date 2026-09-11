@@ -24,8 +24,8 @@ R=$'\033[0m'
 CJ="$HOME/.claude.json"
 [ -n "${CLAUDE_CONFIG_DIR:-}" ] && [ -f "$CLAUDE_CONFIG_DIR/.claude.json" ] && CJ="$CLAUDE_CONFIG_DIR/.claude.json"
 EMAIL="$(jq -r '.oauthAccount.emailAddress // empty' "$CJ" 2>/dev/null)"
-ACC="$(printf '%s' "${EMAIL:0:1}" | tr '[:lower:]' '[:upper:]')"
-[ -z "$ACC" ] && ACC='?'
+ACC="$(printf '%s' "${EMAIL:0:2}" | tr '[:upper:]' '[:lower:]')"   # claude1@… → "cl", mdharm4air… → "md", chatgpt… → "ch"
+[ -z "$ACC" ] && ACC='??'
 a=$'\033[1;36m'"$ACC""$R"   # bright cyan, bold
 
 printf '%s %s %s' "$a" "$c" "$r"
