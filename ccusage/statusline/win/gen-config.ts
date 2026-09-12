@@ -16,17 +16,17 @@ const settings = {
     version: 3,
     lines: [
         [
-            { id: id(), type: 'custom-command', commandPath: cmd('dots.ts'), timeout: 3000, preserveColors: true },
+            // One process for account letters, both dots and the subagent count:
+            // every extra custom-command widget costs a whole Bun spawn.
+            { id: id(), type: 'custom-command', commandPath: cmd('left.ts'), timeout: 3000, preserveColors: true },
             sep(),
             { id: id(), type: 'git-root-dir', color: 'blue', rawValue: true },
             sep(),
-            { id: id(), type: 'custom-command', color: 'green', commandPath: cmd('wt.ts'), timeout: 3000, maxWidth: 18 },
+            { id: id(), type: 'worktree-name', color: 'green' },
             sep(),
             { id: id(), type: 'git-branch', color: 'magenta' },
             sep(),
             { id: id(), type: 'model', color: 'cyan', rawValue: true },
-            sep(),
-            { id: id(), type: 'custom-command', color: 'yellow', commandPath: cmd('subagents.ts'), timeout: 3000, maxWidth: 3 },
             sep(),
             { id: id(), type: 'context-percentage', color: 'green', rawValue: true },
             sep(),
@@ -38,7 +38,7 @@ const settings = {
             sep(),
             { id: id(), type: 'session-clock', color: 'brightBlack', rawValue: true },
             sep(),
-            { id: id(), type: 'custom-command', color: 'brightGreen', commandPath: cmd('sessname.ts'), timeout: 3000, maxWidth: 22 }
+            { id: id(), type: 'session-name', color: 'brightGreen', rawValue: true }
         ],
         [],
         []

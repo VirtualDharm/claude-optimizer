@@ -37,5 +37,15 @@ Install = one `.cmd` shim per tool in a directory already on `PATH`:
 "%LOCALAPPDATA%\Programs\Python\Python313\python.exe" "<repo>\cc-tools\ccls" %*
 ```
 
+`ram` is ported separately as `ram.ps1` (PowerShell 5.1). Same commands as the zsh version
+plus `ram gpu`: it labels every process `iGPU` or `dGPU`, so you can see which apps actually
+landed on the discrete card. The discrete adapter is identified by dedicated VRAM, since
+integrated graphics report none. `COMMIT` replaces `SWAP` — Windows has no swap file to
+measure, and commit charge is the equivalent pressure signal.
+
+Keep `ram.ps1` saved as **UTF-8 with BOM**. It draws bars and arrows with non-ASCII
+characters, and PowerShell 5.1 misreads a BOM-less file, which breaks string parsing in
+places far from the actual character.
+
 Not ported: `ccsessions` (needs `jq`), `cc-export` and `cc-setup.sh` (Mac migration:
 Homebrew, zshrc, Keychain, Brave native host).
