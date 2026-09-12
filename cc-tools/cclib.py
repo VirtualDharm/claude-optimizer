@@ -2,17 +2,30 @@ import os, glob, json, datetime
 
 SLUG = '-' + os.path.expanduser('~').strip('/').replace('/', '-') + '-'   # e.g. '-Users-mac-'
 
-ROOT = os.path.expanduser('~/.claude-wondrfly/projects')
+def _root():
+    """Session store: CLAUDE_CONFIG_DIR wins, else the hub, else plain ~/.claude.
+    Windows has no hub, so it falls through to ~/.claude/projects."""
+    env = os.environ.get('CLAUDE_CONFIG_DIR')
+    if env:
+        return os.path.join(env, 'projects')
+    for d in ('~/.claude-wondrfly/projects', '~/.claude/projects'):
+        p = os.path.expanduser(d)
+        if os.path.isdir(p):
+            return p
+    return os.path.expanduser('~/.claude/projects')
+
+
+ROOT = _root()
 
 def sessions(proj_filter=None):
     """Yield dicts: sid, file, proj, mtime, size, title."""
-    for f in glob.glob(ROOT + '/*/*.jsonl'):
+    for f in glob.glob(os.path.join(ROOT, '*', '*.jsonl')):
         proj = os.path.basename(os.path.dirname(f)).replace(SLUG, '~/')
         if proj_filter and proj_filter.lower() not in proj.lower(): continue
         sid = os.path.basename(f)[:-6]
         title = ''
         try:
-            with open(f, errors='replace') as fh:
+            with open(f, encoding='utf-8', errors='replace') as fh:
                 for line in fh:
                     if '"custom-title"' in line:
                         try: title = json.loads(line).get('customTitle', '') or title
@@ -40,7 +53,7 @@ def fmt_date(t):
 
 def user_prompts(f):
     """Yield (timestamp, text) for real user prompts in a transcript."""
-    with open(f, errors='replace') as fh:
+    with open(f, encoding='utf-8', errors='replace') as fh:
         for line in fh:
             if '"type":"user"' not in line: continue
             try: d = json.loads(line)

@@ -14,7 +14,8 @@ if '-a' in args:
 if not args:
     print(__doc__); sys.exit(1)
 pats = [re.compile(a, re.I) for a in args] if and_mode else [re.compile(' '.join(args), re.I)]
-root = os.path.expanduser('~/.claude-wondrfly/projects')
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+from cclib import ROOT as root
 
 def snippet_of(line, pat):
     try:
@@ -33,13 +34,13 @@ def snippet_of(line, pat):
     return role, ' '.join(txt[s:mo.end()+60].split())
 
 hits = []
-for f in glob.glob(root + '/*/*.jsonl'):
+for f in glob.glob(os.path.join(root, '*', '*.jsonl')):
     proj = os.path.basename(os.path.dirname(f)).replace('-' + os.path.expanduser('~').strip('/').replace('/', '-') + '-', '~/')
     if proj_filter and proj_filter not in proj.lower(): continue
     sid = os.path.basename(f)[:-6]
     found = {p: None for p in pats}
     try:
-        with open(f, errors='replace') as fh:
+        with open(f, encoding='utf-8', errors='replace') as fh:
             for line in fh:
                 for p in pats:
                     if found[p] is None and p.search(line):

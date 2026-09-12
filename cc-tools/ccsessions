@@ -32,7 +32,7 @@ human_size() { # bytes -> compact
 }
 epoch() { # ISO8601 -> epoch (macOS date)
   local t="${1%%.*}"; t="${t/T/ }"; t="${t%Z}"
-  date -j -u -f '%Y-%m-%d %H:%M:%S' "$t" +%s 2>/dev/null || echo 0
+  date -u -d "$t" +%s 2>/dev/null || date -j -u -f '%Y-%m-%d %H:%M:%S' "$t" +%s 2>/dev/null || echo 0
 }
 
 # Emit one TSV row per session: mtime\tid\tproject\tbranch\tmodel\tmsgs\tbytes\tcreated\ttitle
@@ -44,8 +44,8 @@ collect() {
     slug="$(basename "$(dirname "$f")")"
     [ -n "$proj_filter" ] && [[ "$slug" != *"$proj_filter"* ]] && continue
     id="$(basename "$f" .jsonl)"
-    bytes="$(stat -f%z "$f" 2>/dev/null || echo 0)"
-    mtime="$(stat -f%m "$f" 2>/dev/null || echo 0)"
+    bytes="$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f" 2>/dev/null || echo 0)"
+    mtime="$(stat -c%Y "$f" 2>/dev/null || stat -f%m "$f" 2>/dev/null || echo 0)"
     # metadata via one jq pass over the file
     read -r first last model branch msgs < <(
       jq -rs '

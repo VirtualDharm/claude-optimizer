@@ -19,5 +19,21 @@ ln -s "$PWD"/{ccls,ccdel,ccprompts,ccsearch,cclib.py,cc-export} ~/.claude-wondrf
 | `cc-export [--with-sessions]` | pack hub config + tools into `~/Desktop/cc-migrate-<date>.tar.gz` for another Mac |
 | `cc-setup.sh` | restore on a new Mac (tools, hub, profile symlinks, zshrc, plugins, Brave native host) |
 
-`cclib.py` = shared helpers (session listing/resolution). Python 3 + `jq` required.
-Project slugs (`-Users-<user>-...`) derive from `$HOME`, no hardcoded user.
+`cclib.py` = shared helpers (session listing/resolution). Python 3 required; `jq` only for
+`ccsessions`. Project slugs (`-Users-<user>-...`) derive from `$HOME`, no hardcoded user.
+
+## Windows
+
+`ccwho`, `ccls`, `ccprompts`, `ccsearch` and `ccdel` are pure Python 3 and run as-is.
+`ccdel` was rewritten from zsh for this. The session store is resolved by `cclib._root()`:
+`CLAUDE_CONFIG_DIR` if set, else the hub, else `~/.claude` — so no hub is needed.
+
+Install = one `.cmd` shim per tool in a directory already on `PATH`:
+
+```bat
+@echo off
+"%LOCALAPPDATA%\Programs\Python\Python313\python.exe" "<repo>\cc-tools\ccls" %*
+```
+
+Not ported: `ccsessions` (needs `jq`), `cc-export` and `cc-setup.sh` (Mac migration:
+Homebrew, zshrc, Keychain, Brave native host).

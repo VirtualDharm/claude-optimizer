@@ -36,7 +36,12 @@ def account_of(path):
     if not os.path.isdir(path):
         return None, "dir missing"
     if not os.path.isfile(cfg):
-        return None, "never logged in"
+        # Default profile stores identity beside the dir, not inside it.
+        beside = os.path.join(HOME, ".claude.json")
+        if path == os.path.join(HOME, ".claude") and os.path.isfile(beside):
+            cfg = beside
+        else:
+            return None, "never logged in"
     try:
         with open(cfg) as fh:
             data = json.load(fh)
