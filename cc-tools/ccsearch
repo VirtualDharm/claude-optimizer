@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+"""ccsearch <words...> [-p project-substr] [-a] — search text across ALL Claude sessions (hub).
+
+Multiple words = one phrase/regex ("picker search" matches that exact sequence;
+regex works too: "picker.*delete"). With -a, words are ANDed: session must
+contain every word, anywhere."""
+import sys, os, json, re, glob, datetime
+args = sys.argv[1:]
+proj_filter, and_mode = None, False
+if '-p' in args:
+    i = args.index('-p'); proj_filter = args[i+1].lower(); del args[i:i+2]
+if '-a' in args:
+    and_mode = True; args.remove('-a')
+if not args:
+    print(__doc__); sys.exit(1)
+pats = [re.compile(a, re.I) for a in args] if and_mode else [re.compile(' '.join(args), re.I)]
+root = os.path.expanduser('~/.claude-wondrfly/projects')
+
+def snippet_of(line, pat):
+    try:
+        d = json.loads(line)
+        m = d.get('message', {})
+        c = m.get('content', '')
+        if isinstance(c, list):
+            c = ' '.join(x.get('text', '') for x in c if isinstance(x, dict))
+        txt = c or d.get('summary', '') or line
+        role = m.get('role', d.get('type', '?'))
+    except Exception:
+        txt, role = line, '?'
+    mo = pat.search(txt)
+    if not mo: return None
+    s = max(0, mo.start()-60)
+    return role, ' '.join(txt[s:mo.end()+60].split())
+
+hits = []
+for f in glob.glob(root + '/*/*.jsonl'):
+    proj = os.path.basename(os.path.dirname(f)).replace('-' + os.path.expanduser('~').strip('/').replace('/', '-') + '-', '~/')
+    if proj_filter and proj_filter not in proj.lower(): continue
+    sid = os.path.basename(f)[:-6]
+    found = {p: None for p in pats}
+    try:
+        with open(f, errors='replace') as fh:
+            for line in fh:
+                for p in pats:
+                    if found[p] is None and p.search(line):
+                        found[p] = snippet_of(line, p) or (None, None)
+                if all(v is not None for v in found.values()): break
+    except OSError: continue
+    if all(v is not None for v in found.values()):
+        snips = [v for v in found.values() if v and v[0] is not None][:3]
+        mt = datetime.datetime.fromtimestamp(os.path.getmtime(f)).strftime('%Y-%m-%d')
+        hits.append((os.path.getmtime(f), proj, sid, mt, snips))
+hits.sort(reverse=True)
+for _, proj, sid, mt, snips in hits:
+    print(f"\033[1m{sid}\033[0m  {mt}  {proj}")
+    for role, sn in snips[:2]:
+        print(f"    [{role}] …{sn}…")
+print(f"\n{len(hits)} session(s). Resume: claude1 --resume <id>   (run inside the project dir)")

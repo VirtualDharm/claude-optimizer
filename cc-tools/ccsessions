@@ -1,0 +1,175 @@
+#!/usr/bin/env bash
+# ccsessions — list / prune Claude Code session transcripts.
+# Sessions live at ~/.claude/projects/<path-slug>/<uuid>.jsonl (pure transcript logs;
+# safe to delete — only removes resumable history, never touches project code).
+#
+# Usage:
+#   ccsessions ls [--old <days>] [--project <slug-substring>] [--sort age|size|created]
+#   ccsessions rm <session-id> [<session-id>...]
+#   ccsessions prune --older-than <days> [--project <slug>] [--dry-run] [--yes]
+#   ccsessions help
+set -uo pipefail
+
+ROOT="$HOME/.claude/projects"
+SLUG="-$(printf %s "${HOME#/}" | tr / -)-"   # e.g. -Users-mac-
+NOW="$(date +%s)"
+
+command -v jq >/dev/null 2>&1 || { echo "ccsessions: jq required" >&2; exit 1; }
+[ -d "$ROOT" ] || { echo "ccsessions: no sessions dir ($ROOT)" >&2; exit 1; }
+
+# --- helpers ---------------------------------------------------------------
+human_age() { # seconds -> compact
+  local d=$1
+  if   [ "$d" -lt 3600 ];  then echo "$((d/60))m"
+  elif [ "$d" -lt 86400 ]; then echo "$((d/3600))h"
+  else echo "$((d/86400))d"; fi
+}
+human_size() { # bytes -> compact
+  local b=$1
+  if   [ "$b" -lt 1024 ];      then echo "${b}B"
+  elif [ "$b" -lt 1048576 ];   then echo "$((b/1024))K"
+  else echo "$((b/1048576))M"; fi
+}
+epoch() { # ISO8601 -> epoch (macOS date)
+  local t="${1%%.*}"; t="${t/T/ }"; t="${t%Z}"
+  date -j -u -f '%Y-%m-%d %H:%M:%S' "$t" +%s 2>/dev/null || echo 0
+}
+
+# Emit one TSV row per session: mtime\tid\tproject\tbranch\tmodel\tmsgs\tbytes\tcreated\ttitle
+collect() {
+  local proj_filter="${1:-}"
+  local f slug id bytes mtime first last created model branch msgs title
+  for f in "$ROOT"/*/*.jsonl; do
+    [ -f "$f" ] || continue
+    slug="$(basename "$(dirname "$f")")"
+    [ -n "$proj_filter" ] && [[ "$slug" != *"$proj_filter"* ]] && continue
+    id="$(basename "$f" .jsonl)"
+    bytes="$(stat -f%z "$f" 2>/dev/null || echo 0)"
+    mtime="$(stat -f%m "$f" 2>/dev/null || echo 0)"
+    # metadata via one jq pass over the file
+    read -r first last model branch msgs < <(
+      jq -rs '
+        (map(select(.type=="user" or .type=="assistant"))) as $m
+        | [ (($m[0].timestamp) // ""),
+            (($m[-1].timestamp) // ""),
+            ((last(.[] | select(.message.model) | .message.model)) // "?"),
+            ((last(.[] | select(.gitBranch) | .gitBranch)) // "-"),
+            ($m | length | tostring) ] | @tsv
+      ' "$f" 2>/dev/null
+    )
+    [ -n "${first:-}" ] && created="$(epoch "$first")" || created="$mtime"
+    # title: prefer explicit custom-title, else first real user prompt, else untitled
+    title="$(jq -rs '
+      (last(.[] | select(.type=="custom-title") | (.customTitle // .title)) // "") as $ct
+      | if $ct != "" then $ct
+        else ( first(.[] | select(.type=="user")
+                 | (.message.content) as $c
+                 | if ($c|type)=="string" then $c
+                   elif ($c|type)=="array" then ($c|map(select(.type=="text").text)|join(" "))
+                   else "" end
+                 | select(. != "" and (test("<")|not))) // "" )
+        end' "$f" 2>/dev/null)"
+    title="$(printf '%s' "$title" | tr '\n' ' ')"
+    [ -z "$title" ] && title="(untitled)"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "$mtime" "$id" "$slug" "${branch:--}" "${model:-?}" "${msgs:-0}" "$bytes" "$created" "$title"
+  done
+}
+
+# --- subcommands -----------------------------------------------------------
+cmd_ls() {
+  local old="" proj="" sort="age"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --old) old="$2"; shift 2;;
+      --project) proj="$2"; shift 2;;
+      --sort) sort="$2"; shift 2;;
+      *) echo "ccsessions ls: unknown arg $1" >&2; return 2;;
+    esac
+  done
+  local rows; rows="$(collect "$proj")"
+  [ -z "$rows" ] && { echo "no sessions"; return 0; }
+  # optional stale filter
+  if [ -n "$old" ]; then
+    rows="$(awk -F'\t' -v now="$NOW" -v cut="$((old*86400))" '(now-$1)>=cut' <<<"$rows")"
+  fi
+  # sort
+  case "$sort" in
+    size)    rows="$(sort -t$'\t' -k7 -rn <<<"$rows")";;
+    created) rows="$(sort -t$'\t' -k8 -rn <<<"$rows")";;
+    *)       rows="$(sort -t$'\t' -k1 -rn <<<"$rows")";;  # age = mtime desc (newest first)
+  esac
+  # header + formatted rows
+  printf '%-5s %-8s %-26s %-14s %-10s %5s %6s  %s\n' AGE CREATED PROJECT BRANCH MODEL MSGS SIZE TITLE
+  local mtime id slug branch model msgs bytes created title
+  while IFS=$'\t' read -r mtime id slug branch model msgs bytes created title; do
+    printf '%-5s %-8s %-26.26s %-14.14s %-10.10s %5s %6s  %.48s\n' \
+      "$(human_age $((NOW-mtime)))" \
+      "$(date -r "$created" +%m-%d 2>/dev/null || echo '-')" \
+      "${slug#"$SLUG"}" "$branch" "${model#claude-}" "$msgs" \
+      "$(human_size "$bytes")" "$title"
+    printf '      %s\n' "$id"
+  done <<<"$rows"
+}
+
+resolve() { # id-substring -> full path(s)
+  local q="$1"; local hits=()
+  local f
+  for f in "$ROOT"/*/"$q".jsonl "$ROOT"/*/*"$q"*.jsonl; do
+    [ -f "$f" ] && hits+=("$f")
+  done
+  printf '%s\n' "${hits[@]}" | awk 'NF' | sort -u
+}
+
+cmd_rm() {
+  [ $# -ge 1 ] || { echo "ccsessions rm <session-id>..." >&2; return 2; }
+  local q path n=0
+  for q in "$@"; do
+    while IFS= read -r path; do
+      [ -f "$path" ] || continue
+      echo "delete: $(basename "$path" .jsonl)  [$(basename "$(dirname "$path")")]"
+      rm -f "$path" && n=$((n+1))
+    done < <(resolve "$q")
+  done
+  echo "removed $n session(s)"
+}
+
+cmd_prune() {
+  local days="" proj="" dry=0 yes=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --older-than) days="$2"; shift 2;;
+      --project) proj="$2"; shift 2;;
+      --dry-run) dry=1; shift;;
+      --yes|-y) yes=1; shift;;
+      *) echo "ccsessions prune: unknown arg $1" >&2; return 2;;
+    esac
+  done
+  [ -n "$days" ] || { echo "ccsessions prune --older-than <days> [--project s] [--dry-run] [--yes]" >&2; return 2; }
+  local rows; rows="$(collect "$proj" | awk -F'\t' -v now="$NOW" -v cut="$((days*86400))" '(now-$1)>=cut')"
+  [ -z "$rows" ] && { echo "nothing older than ${days}d"; return 0; }
+  local count; count="$(wc -l <<<"$rows" | tr -d ' ')"
+  echo "sessions older than ${days}d${proj:+ in *$proj*}: $count"
+  local mtime id slug rest
+  while IFS=$'\t' read -r mtime id slug rest; do
+    printf '  %-5s %-26.26s %s\n' "$(human_age $((NOW-mtime)))" "${slug#"$SLUG"}" "$id"
+  done <<<"$rows"
+  [ "$dry" -eq 1 ] && { echo "(dry-run — nothing deleted)"; return 0; }
+  if [ "$yes" -ne 1 ]; then
+    printf 'delete these %s session(s)? [y/N] ' "$count"; read -r ans
+    [[ "$ans" =~ ^[Yy]$ ]] || { echo "aborted"; return 0; }
+  fi
+  local n=0
+  while IFS=$'\t' read -r mtime id slug rest; do
+    rm -f "$ROOT/$slug/$id.jsonl" && n=$((n+1))
+  done <<<"$rows"
+  echo "removed $n session(s)"
+}
+
+case "${1:-ls}" in
+  ls)    shift; cmd_ls "$@";;
+  rm)    shift; cmd_rm "$@";;
+  prune) shift; cmd_prune "$@";;
+  help|-h|--help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//';;
+  *) echo "ccsessions: unknown command '$1' (try: ls, rm, prune, help)" >&2; exit 2;;
+esac

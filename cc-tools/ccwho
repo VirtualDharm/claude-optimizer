@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""ccwho — show which Claude Code account each profile alias is logged into.
+
+The alias only chooses the STORAGE DIR. The account comes from whoever you
+authenticate as in the browser during /login, so a dir's name guarantees
+nothing. This prints what is ACTUALLY stored, marks the active profile, and
+flags any dir whose real account differs from the one its alias implies.
+"""
+import json
+import os
+import sys
+
+HOME = os.path.expanduser("~")
+
+# alias, dir, expected email ("" = general, no expectation)
+PROFILES = [
+    ("claude ", ".claude", ""),
+    ("claude1", ".claude-wondrfly", "claude1@wondrfly.com"),
+    ("claude2", ".claude-personal", "mdharm4air.fm@gmail.com"),
+    ("claude3", ".claude-cs1", "chatgptlogin9079@gmail.com"),
+]
+
+BOLD, DIM, RED, GREEN, YELLOW, CYAN, RESET = (
+    "\033[1m", "\033[2m", "\033[31m", "\033[32m", "\033[33m", "\033[36m", "\033[0m"
+)
+if not sys.stdout.isatty():
+    BOLD = DIM = RED = GREEN = YELLOW = CYAN = RESET = ""
+
+active_dir = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(HOME, ".claude")
+active_dir = os.path.realpath(active_dir)
+
+
+def account_of(path):
+    """Return (email, org) recorded in a config dir, or (None, reason)."""
+    cfg = os.path.join(path, ".claude.json")
+    if not os.path.isdir(path):
+        return None, "dir missing"
+    if not os.path.isfile(cfg):
+        return None, "never logged in"
+    try:
+        with open(cfg) as fh:
+            data = json.load(fh)
+    except Exception as exc:
+        return None, "unreadable (%s)" % type(exc).__name__
+    acct = data.get("oauthAccount") or {}
+    email = acct.get("emailAddress")
+    if not email:
+        return None, "no account stored"
+    return email, acct.get("organizationName") or ""
+
+
+print()
+print("  %-8s %-22s %s" % ("ALIAS", "DIR", "ACCOUNT"))
+print("  " + "-" * 74)
+
+problems = []
+for alias, dirname, expected in PROFILES:
+    path = os.path.join(HOME, dirname)
+    email, extra = account_of(path)
+    is_active = os.path.realpath(path) == active_dir
+    marker = GREEN + "▶" + RESET if is_active else " "
+
+    if email is None:
+        shown = DIM + "— " + extra + RESET
+    elif expected and email != expected:
+        shown = RED + email + RESET + YELLOW + "  ✗ expected " + expected + RESET
+        problems.append((alias, email, expected))
+    else:
+        shown = email + (GREEN + "  ✓" + RESET if expected else DIM + "  (general)" + RESET)
+
+    line = "%s %-8s %-22s %s" % (marker, alias, "~/" + dirname, shown)
+    print("  " + (BOLD + line + RESET if is_active else line))
+
+print()
+print("  " + GREEN + "▶" + RESET + " = active in this shell   "
+      + DIM + "CLAUDE_CONFIG_DIR=" + (os.environ.get("CLAUDE_CONFIG_DIR") or "<unset → ~/.claude>") + RESET)
+
+if problems:
+    print()
+    print("  " + YELLOW + "Mismatch: the dir holds a different account than its alias implies." + RESET)
+    for alias, email, expected in problems:
+        print("    %s is %s, not %s" % (alias, email, expected))
+    print("  " + DIM + "Fix: run that alias, /login, and pick the right account in the browser" + RESET)
+    print("  " + DIM + "(sign out of claude.ai first, or the OAuth page reuses the signed-in one)." + RESET)
+print()

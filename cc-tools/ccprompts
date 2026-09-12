@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+"""ccprompts <name-or-id-prefix> [-n N] [-f] — list user prompts of one session.
+-n N: last N prompts (default all). -f: full text (default 200-char preview)."""
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+from cclib import resolve, fmt_date
+args = sys.argv[1:]
+full = '-f' in args
+if full: args.remove('-f')
+lastn = None
+if '-n' in args:
+    i = args.index('-n'); lastn = int(args[i+1]); del args[i:i+2]
+if not args: print(__doc__); sys.exit(1)
+m = resolve(args[0])
+if not m: print(f"no session matching '{args[0]}'"); sys.exit(1)
+if len(m) > 1:
+    print("ambiguous:"); [print(f"  {s['sid'][:8]}  {s['title'] or '(unnamed)'}  {s['proj']}") for s in m]; sys.exit(1)
+s = m[0]
+from cclib import user_prompts
+prompts = list(user_prompts(s['file']))
+if lastn: prompts = prompts[-lastn:]
+print(f"\033[1m{s['title'] or '(unnamed)'}\033[0m  {s['sid']}  {s['proj']}  ({len(prompts)} prompts)\n")
+import datetime as _dt
+def _fmt(ts):
+    # jsonl timestamps are UTC ISO ("...Z") — show local time as "23-aug 16:45"
+    try:
+        d = _dt.datetime.fromisoformat(str(ts).replace('Z', '+00:00'))
+        if d.tzinfo: d = d.astimezone()
+        return d.strftime('%d-%b %H:%M').lower()
+    except Exception:
+        return str(ts)[:16]
+for i, (ts, t) in enumerate(prompts, 1):
+    txt = t if full else ' '.join(t.split())[:200]
+    print(f"{i:3}. [{_fmt(ts)}] {txt}")

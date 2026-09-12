@@ -1,0 +1,11 @@
+#!/usr/bin/env python3
+"""ccls [project-substr] — list all sessions: title, id, date, size, project."""
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+from cclib import sessions, fmt_size, fmt_date
+pf = sys.argv[1] if len(sys.argv) > 1 else None
+rows = sorted(sessions(pf), key=lambda s: -s['mtime'])
+for s in rows:
+    name = s['title'] or '(unnamed)'
+    print(f"\033[1m{name:<38.38}\033[0m {s['sid'][:8]}  {fmt_date(s['mtime'])}  {fmt_size(s['size']):>7}  {s['proj']}")
+print(f"\n{len(rows)} sessions. ccprompts <name|id> · ccdel <name|id> · claude1 --resume <id>")

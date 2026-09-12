@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# cc-export — pack the Claude Code multi-account setup for another Mac.
+# Usage: cc-export [--with-sessions] [--out DIR]
+# Produces: <DIR>/cc-migrate-YYYYMMDD.tar.gz  (default DIR = ~/Desktop)
+# Excludes: .claude.json (account identity), Keychain creds, sessions/ locks, plugin cache.
+set -euo pipefail
+HUB="$HOME/.claude-wondrfly"
+OUT="$HOME/Desktop"; WITH_SESSIONS=0
+while [ $# -gt 0 ]; do case "$1" in
+  --with-sessions) WITH_SESSIONS=1;; --out) OUT="$2"; shift;; *) echo "bad arg $1"; exit 1;; esac; shift; done
+STAMP="$(date +%Y%m%d)"; STAGE="$(mktemp -d)/cc-migrate"; mkdir -p "$STAGE"
+say(){ printf '• %s\n' "$*"; }
+
+# 1. hub config (no runtime state)
+mkdir -p "$STAGE/hub"
+for f in CLAUDE.md RTK.md settings.json settings.local.json statusline-command.sh; do
+  [ -e "$HUB/$f" ] && cp "$HUB/$f" "$STAGE/hub/"; done
+cp -R "$HUB/hooks" "$STAGE/hub/hooks"
+cp -RL "$HUB/skills" "$STAGE/hub/skills"          # deref symlinks -> real skill dirs
+cp -R "$HUB/agents" "$STAGE/hub/agents"
+[ -d "$HUB/agents-removed-china" ] && cp -R "$HUB/agents-removed-china" "$STAGE/hub/"
+mkdir -p "$STAGE/hub/bin"; for f in "$HUB"/bin/*; do
+  case "$(basename "$f")" in chrome-data*|__pycache__) ;; *) cp -RL "$f" "$STAGE/hub/bin/";; esac; done
+say "hub config"
+
+# 2. memories (all projects)
+mkdir -p "$STAGE/hub/projects"
+for m in "$HUB"/projects/*/memory; do [ -d "$m" ] || continue
+  p="$(basename "$(dirname "$m")")"; mkdir -p "$STAGE/hub/projects/$p"; cp -R "$m" "$STAGE/hub/projects/$p/memory"; done
+say "memories"
+
+# 3. optional session transcripts + history
+if [ "$WITH_SESSIONS" = 1 ]; then
+  for d in "$HUB"/projects/*/; do p="$(basename "$d")"; mkdir -p "$STAGE/hub/projects/$p"
+    find "$d" -maxdepth 1 -name '*.jsonl' -exec cp {} "$STAGE/hub/projects/$p/" \;
+    for s in "$d"*/; do [ -f "$s/custom-title.json" ] && mkdir -p "$STAGE/hub/projects/$p/$(basename "$s")" && cp "$s/custom-title.json" "$STAGE/hub/projects/$p/$(basename "$s")/"; done
+  done
+  cp "$HUB/history.jsonl" "$STAGE/hub/" 2>/dev/null || true
+  say "sessions + history (large)"
+fi
+
+# 4. helper CLIs, statusline config, shared skills source
+mkdir -p "$STAGE/local-bin" "$STAGE/config"
+cp -L "$HOME/.local/bin/ccwho" "$HOME/.local/bin/ccsessions" "$STAGE/local-bin/"
+[ -d "$HOME/.config/ccstatusline" ] && cp -R "$HOME/.config/ccstatusline" "$STAGE/config/ccstatusline"
+[ -d "$HOME/.agents/skills" ] && mkdir -p "$STAGE/agents-skills" && cp -RL "$HOME/.agents/skills/." "$STAGE/agents-skills/"
+say "ccwho/ccsessions, ccstatusline config, ~/.agents/skills"
+
+# 5. claude-optimizer runtime bits (hooks, statusline dist, virus-killer); full repo = git clone
+OPT="$HOME/Projects2/claude-optimizer"; mkdir -p "$STAGE/claude-optimizer/ccusage"
+cp -R "$OPT/hooks" "$OPT/virus-killer" "$STAGE/claude-optimizer/"
+cp -R "$OPT/ccusage/dist" "$OPT/ccusage/statusline" "$STAGE/claude-optimizer/ccusage/"
+say "claude-optimizer hooks + statusline dist"
+
+# 6. shell snippet (Claude block of ~/.zshrc)
+awk '/^alias killworm=/,/^export PATH="\$HOME\/.claude-wondrfly\/bin:\$PATH"/' "$HOME/.zshrc" > "$STAGE/zshrc-claude.snippet"
+say "zshrc snippet ($(wc -l < "$STAGE/zshrc-claude.snippet") lines)"
+
+# 7. browser: native host manifest + extension list
+mkdir -p "$STAGE/browser"
+cp "$HOME/Library/Application Support/BraveSoftware/Brave-Browser/NativeMessagingHosts/com.anthropic.claude_code_browser_extension.json" "$STAGE/browser/" 2>/dev/null || true
+python3 - "$STAGE/browser/brave-extensions.txt" <<'PY'
+import json,sys
+p=__import__('os').path.expanduser('~/Library/Application Support/BraveSoftware/Brave-Browser/Default/Secure Preferences')
+out=open(sys.argv[1],'w')
+for k,v in json.load(open(p)).get('extensions',{}).get('settings',{}).items():
+    n=v.get('manifest',{}).get('name')
+    if v.get('location') in (5,10) or not v.get('from_webstore',True): continue   # skip Brave/Chrome built-ins
+    if n: out.write(f"{k}\t{n}\thttps://chromewebstore.google.com/detail/{k}\n")
+PY
+say "browser manifest + extension list"
+
+# 8. setup script + manifest
+SELF="$0"; while [ -L "$SELF" ]; do SELF="$(readlink "$SELF")"; done
+cp "$(cd "$(dirname "$SELF")" && pwd)/cc-setup.sh" "$STAGE/"; chmod +x "$STAGE/cc-setup.sh"
+{ echo "exported $(date) from $(hostname) user=$USER"; echo "claude $(claude --version 2>/dev/null)"; echo "rtk $(rtk --version 2>/dev/null)"; echo "node $(node --version 2>/dev/null)"; echo "bun $(bun --version 2>/dev/null)"; echo "with_sessions=$WITH_SESSIONS"; } > "$STAGE/MANIFEST.txt"
+
+mkdir -p "$OUT"; TAR="$OUT/cc-migrate-$STAMP.tar.gz"
+tar -czf "$TAR" -C "$(dirname "$STAGE")" cc-migrate
+rm -rf "$(dirname "$STAGE")"
+say "done → $TAR ($(du -h "$TAR" | cut -f1))"
+echo "Next: copy tarball to new Mac, then:  tar xzf $(basename "$TAR") && cd cc-migrate && ./cc-setup.sh"
