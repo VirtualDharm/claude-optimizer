@@ -5,6 +5,7 @@ Small CLIs for a multi-account Claude Code setup where every profile shares one 
 
 ```bash
 ln -s "$PWD"/{ccwho,ccsessions} ~/.local/bin/
+ln -s "$PWD"/ram ~/bin/
 ln -s "$PWD"/{ccls,ccdel,ccprompts,ccsearch,cclib.py,cc-export} ~/.claude-wondrfly/bin/
 ```
 
@@ -17,6 +18,7 @@ ln -s "$PWD"/{ccls,ccdel,ccprompts,ccsearch,cclib.py,cc-export} ~/.claude-wondrf
 | `ccdel <name\|id>` | delete a session transcript |
 | `ccsessions ls\|rm\|prune` | older bash session manager (age/size/prune) |
 | `cc-export [--with-sessions]` | pack hub config + tools into `~/Desktop/cc-migrate-<date>.tar.gz` for another Mac |
+| `ram` | macOS task manager: memory/disk dashboard, `ram ports`, `ram port <n>` to free one, `ram clean`, `ram big` |
 | `cc-setup.sh` | restore on a new Mac (tools, hub, profile symlinks, zshrc, plugins, Brave native host) |
 
 `cclib.py` = shared helpers (session listing/resolution). Python 3 required; `jq` only for

@@ -42,6 +42,7 @@ fi
 # 4. helper CLIs, statusline config, shared skills source
 mkdir -p "$STAGE/local-bin" "$STAGE/config"
 cp -L "$HOME/.local/bin/ccwho" "$HOME/.local/bin/ccsessions" "$STAGE/local-bin/"
+mkdir -p "$STAGE/bin"; [ -e "$HOME/bin/ram" ] && cp -L "$HOME/bin/ram" "$STAGE/bin/"
 [ -d "$HOME/.config/ccstatusline" ] && cp -R "$HOME/.config/ccstatusline" "$STAGE/config/ccstatusline"
 [ -d "$HOME/.agents/skills" ] && mkdir -p "$STAGE/agents-skills" && cp -RL "$HOME/.agents/skills/." "$STAGE/agents-skills/"
 say "ccwho/ccsessions, ccstatusline config, ~/.agents/skills"

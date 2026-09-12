@@ -41,6 +41,7 @@ for s in "$HOME/.agents/skills"/*/; do n="$(basename "$s")"; s="${s%/}"
   [ -e "$HUB/skills/$n" ] && [ ! -L "$HUB/skills/$n" ] && rm -rf "$HUB/skills/$n"
   ln -sfn "$s" "$HUB/skills/$n"; done
 cp "$SRC/local-bin/"* "$HOME/.local/bin/"; chmod +x "$HOME/.local/bin/ccwho" "$HOME/.local/bin/ccsessions"
+mkdir -p "$HOME/bin"; [ -e "$SRC/bin/ram" ] && { cp "$SRC/bin/ram" "$HOME/bin/ram"; chmod +x "$HOME/bin/ram"; }
 [ -d "$SRC/config/ccstatusline" ] && { rm -rf "$HOME/.config/ccstatusline"; cp -R "$SRC/config/ccstatusline" "$HOME/.config/"; sed -i '' "s#$OLDHOME#$HOME#g" "$HOME/.config/ccstatusline/settings.json"; }
 
 # ── 3. claude-optimizer (hooks, statusline, virus-killer) ──────────────────
@@ -54,6 +55,7 @@ chmod +x "$OPT"/hooks/*.sh "$OPT"/virus-killer/*.sh "$OPT"/ccusage/statusline/*.
 # cc-tools: repo is source of truth → replace tarball copies with symlinks
 if [ -d "$OPT/cc-tools" ]; then
   for t in ccwho ccsessions; do ln -sfn "$OPT/cc-tools/$t" "$HOME/.local/bin/$t"; done
+  [ -e "$OPT/cc-tools/ram" ] && { mkdir -p "$HOME/bin"; ln -sfn "$OPT/cc-tools/ram" "$HOME/bin/ram"; }
   for t in ccls ccdel ccprompts ccsearch cclib.py cc-export; do ln -sfn "$OPT/cc-tools/$t" "$HUB/bin/$t"; done
   echo "  cc-tools symlinked from repo"
 fi
