@@ -4,3 +4,4 @@
 .claude/plans/
 ccusage/node_modules/
 ccusage/dist/
+__pycache__/

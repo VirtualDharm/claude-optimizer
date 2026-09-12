@@ -1,0 +1,29 @@
+#!/bin/zsh
+# ccdel <name-or-id-prefix> — delete session (transcript + subagent dir + rewind)
+[ -z "$1" ] && { echo "usage: ccdel <session-name-or-id-prefix>"; exit 1; }
+HUB=$HOME/.claude-wondrfly
+info=$(python3 - "$1" <<'PY'
+import sys, os
+sys.path.insert(0, os.path.expanduser('~/.claude-wondrfly/bin'))
+from cclib import resolve
+m = resolve(sys.argv[1])
+if not m: print("NONE"); sys.exit()
+if len(m) > 1:
+    print("MANY"); [print(f"  {s['sid'][:8]}  {s['title'] or '(unnamed)'}  {s['proj']}") for s in m]; sys.exit()
+s = m[0]; print(f"{s['sid']}\t{s['file']}\t{s['title'] or '(unnamed)'}\t{s['proj']}")
+PY
+)
+case $info in
+  NONE) echo "no session matching '$1'"; exit 1;;
+  MANY*) echo "ambiguous:${info#MANY}"; exit 1;;
+esac
+sid=${info%%$'\t'*}; rest=${info#*$'\t'}; f=${rest%%$'\t'*}; rest=${rest#*$'\t'}; title=${rest%%$'\t'*}; proj=${rest#*$'\t'}
+dir=${f%.jsonl}
+echo "session : $title"
+echo "id      : $sid"
+echo "project : $proj"
+echo "size    : $(du -sh $f | cut -f1) (+ $(du -sh $dir 2>/dev/null | cut -f1 || echo 0) subagents, + $(du -sh $HUB/file-history/$sid 2>/dev/null | cut -f1 || echo 0) rewind)"
+printf "delete? [y/N] "; read ans
+[ "$ans" = y ] || { echo aborted; exit 0; }
+rm -f $f; rm -rf $dir $HUB/file-history/$sid $HUB/image-cache/$sid
+echo deleted
