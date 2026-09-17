@@ -3,6 +3,7 @@
 # Reads statusline JSON on stdin. Output: "● ●" with raw ANSI (set preserveColors:true).
 #   dot 1 = caveman: green active / red inactive  (marker /tmp/.cc_cave_s.<session>)
 #   dot 2 = rtk:     yellow active / purple inactive (binary on PATH + hook in settings.json)
+#   3rd   = /rc:     "rc-on" bright-blue / "rc-off" dim-grey  (bridgeSessionId in <config>/sessions/<pid>.json)
 set -uo pipefail
 input="$(cat)"
 g() { printf '%s' "$input" | jq -r "$1" 2>/dev/null; }
@@ -15,9 +16,18 @@ RTK=0
 if command -v rtk >/dev/null 2>&1 && \
    grep -q 'rtk hook claude' "$HOME/.claude/settings.json" 2>/dev/null; then RTK=1; fi
 
+# ── remote control: session registry entry for this session has a bridgeSessionId ──
+RC=0
+if [ -n "$SID" ] && [ "$SID" != "null" ]; then
+  SDIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/sessions"
+  [ -d "$SDIR" ] && BR="$(jq -r --arg s "$SID" 'select(.sessionId==$s) | .bridgeSessionId // empty' "$SDIR"/*.json 2>/dev/null | head -1)"
+  [ -n "${BR:-}" ] && RC=1
+fi
+
 R=$'\033[0m'
 [ "$CAVE" = "1" ] && c=$'\033[32m●'"$R" || c=$'\033[31m●'"$R"
 [ "$RTK"  = "1" ] && r=$'\033[33m●'"$R" || r=$'\033[35m●'"$R"
+[ "$RC"   = "1" ] && b=$'\033[94mrc-on'"$R" || b=$'\033[90mrc-off'"$R"
 
 # ── account letter: first char of logged-in Claude email (uppercase) ─────────
 # pick the right .claude.json for the active account (CLAUDE_CONFIG_DIR-aware)
@@ -28,5 +38,5 @@ ACC="$(printf '%s' "${EMAIL:0:2}" | tr '[:upper:]' '[:lower:]')"   # claude1@…
 [ -z "$ACC" ] && ACC='??'
 a=$'\033[1;36m'"$ACC""$R"   # bright cyan, bold
 
-printf '%s %s %s' "$a" "$c" "$r"
+printf '%s %s %s %s' "$a" "$c" "$r" "$b"
 exit 0
