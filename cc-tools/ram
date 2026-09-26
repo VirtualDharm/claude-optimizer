@@ -80,11 +80,17 @@ collect() {  # collect [all]  — groups helper processes under their .app name
 
 # ── dashboard ─────────────────────────────────────────────────────────────
 dashboard() {
-  local total_gb free_pct used_pct swap_used swap_tot disk_free disk_pct
+  local total_gb free_pct used_pct swap_used swap_tot disk_free disk_pct mem_used_gb mem_used_pct
   total_gb=$(sysctl -n hw.memsize | awk '{printf "%.0f", $1/1073741824}')
+  # "Memory Used" the way Activity Monitor counts it:
+  # app memory (anonymous − purgeable) + wired + compressed. File cache is excluded.
+  read mem_used_gb mem_used_pct <<< "$(vm_stat | awk -v tot="$(sysctl -n hw.memsize)" '
+    /page size of/ {ps=$8} /^Anonymous pages/ {an=$3} /^Pages purgeable/ {pu=$3}
+    /^Pages wired down/ {wi=$4} /occupied by compressor/ {co=$5}
+    END {b=(an-pu+wi+co)*ps; printf "%.1f %d", b/1073741824, b*100/tot}')"
   free_pct=$(memory_pressure 2>/dev/null | awk -F': ' '/free percentage/{gsub(/%/,"",$2); print $2+0}')
   [[ -z $free_pct ]] && free_pct=50
-  used_pct=$(( 100 - free_pct ))
+  used_pct=$(( 100 - free_pct ))   # memory pressure (what macOS can't free on demand)
   swap_used=$(sysctl -n vm.swapusage | awk '{gsub(/M/,"",$6); printf "%.0f", $6}')
   swap_tot=$(sysctl -n vm.swapusage  | awk '{gsub(/M/,"",$3); printf "%.0f", $3}')
   disk_free=$(df -g / | awk 'NR==2{print $4}')
@@ -94,8 +100,12 @@ dashboard() {
   print -- "  ${B}${BLU}▍SYSTEM${R}  ${DIM}$(date '+%H:%M:%S')${R}"
   print ""
   printf "  %-6s " "RAM"
+  bar $mem_used_pct 24 "$(heat $mem_used_pct)"
+  printf "  %s%sGB%s used of %sGB (%d%%)   ${DIM}like Activity Monitor${R}\n" "$(heat $mem_used_pct)" "$mem_used_gb" "$R" "$total_gb" $mem_used_pct
+
+  printf "  %-6s " "PRESS"
   bar $used_pct 24 "$(heat $used_pct)"
-  printf "  %s%d%%%s used of %sGB   ${DIM}free %d%%${R}\n" "$(heat $used_pct)" $used_pct "$R" "$total_gb" $free_pct
+  printf "  %s%d%%%s pressure   ${DIM}%d%% available (incl. reclaimable cache)${R}\n" "$(heat $used_pct)" $used_pct "$R" $free_pct
 
   local swap_pct=0
   (( swap_tot > 0 )) && swap_pct=$(( swap_used * 100 / swap_tot ))
@@ -124,6 +134,41 @@ dashboard() {
     print -- "  ${GRN}✓  healthy${R}"
   fi
 
+  # ── memory breakdown: where every GB of physical RAM is ─────────────────
+  # vm_stat categories (same as Activity Monitor's Memory tab):
+  #   app = anonymous − purgeable, wired, compressor, cached = file-backed + purgeable,
+  #   free = free + speculative; "other" = rounding / pages in transition.
+  local -a memv
+  memv=( $(vm_stat | awk -v tot="$(sysctl -n hw.memsize)" '
+    /page size of/ {ps=$8}
+    /^Pages free/ {fr=$3} /^Pages speculative/ {sp=$3}
+    /^Anonymous pages/ {an=$3} /^File-backed pages/ {fb=$3} /^Pages purgeable/ {pu=$3}
+    /^Pages wired down/ {wi=$4} /occupied by compressor/ {co=$5} /stored in compressor/ {st=$5}
+    END { m=ps/1048576
+      app=(an-pu)*m; wir=wi*m; cmp=co*m; cac=(fb+pu)*m; fre=(fr+sp)*m; stored=st*m
+      t=tot/1048576; oth=t-app-wir-cmp-cac-fre; if (oth<0) oth=0
+      printf "%d %d %d %d %d %d %d %d", t, app, wir, cmp, stored, cac, fre, oth }') )
+  local t_mb=${memv[1]} app_mb=${memv[2]} wir_mb=${memv[3]} cmp_mb=${memv[4]} sto_mb=${memv[5]} cac_mb=${memv[6]} fre_mb=${memv[7]} oth_mb=${memv[8]}
+  local used_mb=$(( app_mb + wir_mb + cmp_mb ))
+  memrow() {  # memrow <label> <mb> <color> <note>
+    local pct=$(( $2 * 100 / t_mb ))
+    printf "  %-14s %s%6.1fGB%s %3d%%  " "$1" "$3" "$(( $2 / 1024.0 ))" "$R" $pct
+    bar $pct 16 "$3"
+    print -- "  ${DIM}$4${R}"
+  }
+  print ""
+  printf "  ${B}%-14s %8s %4s${R}\n" "MEMORY" "$(( t_mb / 1024 ))GB" "100%"
+  print -- "  ${DIM}─────────────────────────────────────────────────────────────────${R}"
+  memrow "App memory"   $app_mb "$YEL" "apps & their helpers (table below)"
+  memrow "Wired"        $wir_mb "$RED" "macOS kernel + drivers — never freed"
+  local ratio=""; (( cmp_mb > 0 )) && ratio=$(printf " (holds %.1fGB → %.1fx)" "$(( sto_mb / 1024.0 ))" "$(( sto_mb * 1.0 / cmp_mb ))")
+  memrow "Compressed"   $cmp_mb "$BLU" "squeezed idle app memory${ratio}"
+  printf "  ${B}%-14s %6.1fGB %3d%%${R}  ${DIM}= used (app + wired + compressed)${R}\n" "USED" "$(( used_mb / 1024.0 ))" $(( used_mb * 100 / t_mb ))
+  memrow "Cached files" $cac_mb "$GRN" "recently read files — dropped instantly when needed"
+  memrow "Free"         $fre_mb "$GRN" "empty"
+  (( oth_mb > 64 )) && memrow "Other"  $oth_mb "$GRY" "pages in transit / rounding"
+  printf "  %-14s %6dMB       ${DIM}on disk — memory pushed out of RAM${R}\n" "Swap" $swap_used
+
   # ── process table ───────────────────────────────────────────────────────
   local sortcol=1; [[ $SORT == cpu ]] && sortcol=2
   print ""
@@ -145,6 +190,16 @@ dashboard() {
     print ""
     (( i++ ))
   done
+  # totals: shown rows vs every app vs hidden daemons
+  local rows_kb apps_kb all_kb nproc
+  rows_kb=$(collect $ALL | sort -t$'\t' -k1 -rn | head -$ROWS | awk -F'\t' '{s+=$1} END{print s+0}')
+  apps_kb=$(collect | awk -F'\t' '{s+=$1} END{print s+0}')
+  all_kb=$(collect all | awk -F'\t' '{s+=$1} END{print s+0}')
+  nproc=$(ps -A | tail -n +2 | wc -l | tr -d ' ')
+  print -- "  ${DIM}─────────────────────────────────────────────────────────────────${R}"
+  printf "  ${DIM}top %d shown %.1fGB · all apps %.1fGB · background daemons %.1fGB · %d processes${R}\n" \
+    $ROWS "$(( rows_kb / 1048576.0 ))" "$(( apps_kb / 1048576.0 ))" "$(( (all_kb - apps_kb) / 1048576.0 ))" $nproc
+  print -- "  ${DIM}per-app numbers count shared libraries in every process that uses them, so they add up to more than App memory${R}"
   print ""
   print -- "  ${DIM}ram -w${R} live   ${DIM}ram -c${R} by CPU   ${DIM}ram -i${R} pick & quit   ${DIM}ram -a${R} incl. daemons   ${DIM}ram ports${R} ports   ${DIM}ram disk${R} storage   ${DIM}ram clean${R} free memory"
   print ""
